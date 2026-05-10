@@ -56,7 +56,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd cafe-connect && REACT_NATIVE_PACKAGER_HOSTNAME=cf4024c4-1768-41b7-92a2-48e8ab8e2e6a-00-ld58eiitev60.pike.replit.dev npx expo start --port 8081"
+args = "cd cafe-connect && REACT_NATIVE_PACKAGER_HOSTNAME=cf4024c4-1768-41b7-92a2-48e8ab8e2e6a-00-ld58eiitev60.pike.replit.dev npx expo start --port 8080"
 
 [workflows.workflow.metadata]
 outputType = "console"
