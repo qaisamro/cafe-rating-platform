@@ -40,11 +40,7 @@ class _MyCafeScreenState extends State<MyCafeScreen> {
     } catch (_) { if (mounted) setState(() => _isLoading = false); }
   }
 
-  String _imgUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
-    if (url.startsWith('/')) return 'http://localhost:5000$url';
-    return url;
-  }
+  String _imgUrl(String? url) => ApiService.imgUrl(url);
 
   Future<void> _pickAndUpload() async {
     final picker = ImagePicker();
@@ -64,7 +60,7 @@ class _MyCafeScreenState extends State<MyCafeScreen> {
 
   void _saveCafe() async {
     setState(() => _isSaving = true);
-    final imageToSave = (_imageUrl != null && _imageUrl!.startsWith('/')) ? 'http://localhost:5000$_imageUrl' : (_imageUrl ?? '');
+    final imageToSave = ApiService.imgUrl(_imageUrl);
     final data = { 'name': _name.text, 'address': _address.text, 'description': _desc.text, 'image_url': imageToSave };
     final res = _cafeId == null ? await ApiService.post('/cafes', data) : await ApiService.put('/cafes/$_cafeId', data);
     setState(() => _isSaving = false);

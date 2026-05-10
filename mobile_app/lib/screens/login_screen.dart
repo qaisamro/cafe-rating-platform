@@ -5,6 +5,7 @@ import 'package:mobile_app/main.dart';
 import 'package:mobile_app/services/api_service.dart';
 import 'package:mobile_app/screens/user_main_tab.dart';
 import 'package:mobile_app/screens/owner_main_tab.dart';
+import 'package:mobile_app/screens/admin_main_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -28,9 +29,14 @@ class _LoginScreenState extends State<LoginScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
         await prefs.setString('role', data['user']['role']);
+        final role = data['user']['role'];
+        Widget destination;
+        if (role == 'owner') destination = OwnerMainTab();
+        else if (role == 'admin') destination = AdminMainTab();
+        else destination = UserMainTab();
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => data['user']['role'] == 'owner' ? OwnerMainTab() : UserMainTab()),
+          MaterialPageRoute(builder: (_) => destination),
           (r) => false,
         );
       } else {

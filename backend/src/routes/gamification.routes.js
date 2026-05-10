@@ -3,6 +3,13 @@ const router = express.Router();
 const { getSpinWheelRewards, getOwnerSpinWheelRewards, createSpinWheelReward, deleteSpinWheelReward, spinWheel, getSpinStatus, getMyWallet } = require('../controllers/gamification.controller');
 const { auth, authorize } = require('../middleware/auth.middleware');
 
+router.get('/my-points', auth, (req, res) => {
+    const pool = require('../config/db');
+    pool.query('SELECT points, level FROM users WHERE id = $1', [req.user.id])
+        .then(r => res.json({ points: r.rows[0]?.points || 0, level: r.rows[0]?.level || 'برونزي' }))
+        .catch(err => res.status(500).json({ error: err.message }));
+});
+
 router.get('/rewards', auth, getSpinWheelRewards);
 router.post('/spin', auth, spinWheel);
 router.get('/spin-status', auth, getSpinStatus);

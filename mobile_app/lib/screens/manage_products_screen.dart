@@ -133,7 +133,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                       if (_selectedImage != null) {
                          final uploadedUrl = await ApiService.uploadImage(_selectedImage!);
                          if (uploadedUrl != null) {
-                            imageUrl = 'http://localhost:5000' + uploadedUrl;
+                            imageUrl = ApiService.imgUrl(uploadedUrl);
                          } else {
                             throw Exception('فشل رفع الصورة.');
                          }

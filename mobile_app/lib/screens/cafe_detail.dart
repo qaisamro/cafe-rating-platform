@@ -20,6 +20,7 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
   bool _isLoading = true;
   String _selectedCategory = 'الكل';
   late TabController _tabController;
+  Map? _settings;
 
   @override
   void initState() {
@@ -37,20 +38,16 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
         ApiService.get('/cafes/${widget.cafeId}'),
         ApiService.get('/products/cafe/${widget.cafeId}'),
         ApiService.get('/reviews/cafe/${widget.cafeId}'),
+        ApiService.get('/settings'),
       ]);
       if (mounted) setState(() {
         if (results[0].statusCode == 200) _cafe = jsonDecode(results[0].body);
         if (results[1].statusCode == 200) _products = jsonDecode(results[1].body);
         if (results[2].statusCode == 200) _reviews = jsonDecode(results[2].body);
+        if (results[3].statusCode == 200) _settings = jsonDecode(results[3].body);
         _isLoading = false;
       });
     } catch (_) { if (mounted) setState(() => _isLoading = false); }
-  }
-
-  String _imgUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
-    if (url.startsWith('/')) return 'http://localhost:5000$url';
-    return url;
   }
 
   void _handleReview() async {
@@ -84,7 +81,10 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
 
   void _showAddReviewDialog() {
     double _rating = 5;
+    int? _selectedProductId;
+    String? _selectedProductName;
     final _comment = TextEditingController();
+    final reviewPoints = int.tryParse(_settings?['review_points'] ?? '10') ?? 10;
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -93,56 +93,88 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
           child: AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             title: Text('قيّم تجربتك ⭐', style: GoogleFonts.cairo(fontWeight: FontWeight.w900, fontSize: 22)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('كم تقيّم ${_cafe?['name'] ?? 'هذا المقهى'}؟', style: GoogleFonts.cairo(color: AppColors.textMuted, fontSize: 14)),
-                SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (i) => GestureDetector(
-                    onTap: () => setS(() => _rating = i + 1.0),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(i < _rating ? Icons.star_rounded : Icons.star_outline_rounded, color: AppColors.warning, size: 40),
-                    ),
-                  )),
-                ),
-                SizedBox(height: 20),
-                TextField(
-                  controller: _comment,
-                  textAlign: TextAlign.right,
-                  maxLines: 4,
-                  style: GoogleFonts.cairo(),
-                  decoration: InputDecoration(
-                    hintText: 'اكتب تجربتك بكل صدق...',
-                    hintStyle: GoogleFonts.cairo(color: AppColors.textMuted),
-                    filled: true,
-                    fillColor: AppColors.bg,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('كم تقيّم ${_cafe?['name'] ?? 'هذا المقهى'}؟', style: GoogleFonts.cairo(color: AppColors.textMuted, fontSize: 14)),
+                  SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) => GestureDetector(
+                      onTap: () => setS(() => _rating = i + 1.0),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(i < _rating ? Icons.star_rounded : Icons.star_outline_rounded, color: AppColors.warning, size: 40),
+                      ),
+                    )),
                   ),
-                ),
-                SizedBox(height: 12),
-                Container(
-                  padding: EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
-                  child: Row(children: [
-                    Icon(Icons.info_outline, color: AppColors.warning, size: 16),
-                    SizedBox(width: 8),
-                    Expanded(child: Text('يظهر تقييمك بعد موافقة الإدارة', style: GoogleFonts.cairo(fontSize: 12, color: AppColors.warning, fontWeight: FontWeight.w600))),
-                  ]),
-                ),
-              ],
+                  SizedBox(height: 16),
+                  // Optional: rate a specific product
+                  if (_products.isNotEmpty) ...[
+                    Divider(),
+                    Text('هل تريد تقييم منتج معين؟ (اختياري)', style: GoogleFonts.cairo(fontSize: 13, color: AppColors.textMuted)),
+                    SizedBox(height: 8),
+                    DropdownButtonFormField<int>(
+                      value: _selectedProductId,
+                      isExpanded: true,
+                      hint: Text('اختر منتجاً...', style: GoogleFonts.cairo(color: AppColors.textMuted, fontSize: 13)),
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+                      ),
+                      items: [
+                        DropdownMenuItem<int>(value: null, child: Text('المقهى بشكل عام', style: GoogleFonts.cairo(fontSize: 13))),
+                        ..._products.map((p) => DropdownMenuItem<int>(
+                          value: p['id'],
+                          child: Text(p['name'], style: GoogleFonts.cairo(fontSize: 13), overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                      ],
+                      onChanged: (v) => setS(() { _selectedProductId = v; _selectedProductName = _products.firstWhere((p) => p['id'] == v, orElse: () => {})['name']; }),
+                    ),
+                    SizedBox(height: 12),
+                  ],
+                  TextField(
+                    controller: _comment,
+                    textAlign: TextAlign.right,
+                    maxLines: 4,
+                    style: GoogleFonts.cairo(),
+                    decoration: InputDecoration(
+                      hintText: 'اكتب تجربتك بكل صدق...',
+                      hintStyle: GoogleFonts.cairo(color: AppColors.textMuted),
+                      filled: true, fillColor: AppColors.bg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Container(
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+                    child: Row(children: [
+                      Icon(Icons.info_outline, color: AppColors.warning, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('ستحصل على $reviewPoints نقطة عند الموافقة!', style: GoogleFonts.cairo(fontSize: 12, color: AppColors.warning, fontWeight: FontWeight.w600))),
+                    ]),
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context), child: Text('تراجع', style: GoogleFonts.cairo())),
               ElevatedButton(
                 onPressed: () async {
-                  final res = await ApiService.post('/reviews', { 'cafe_id': widget.cafeId, 'rating': _rating, 'comment': _comment.text });
+                  final body = {
+                    'cafe_id': widget.cafeId,
+                    'rating': _rating,
+                    'comment': _comment.text,
+                    if (_selectedProductId != null) 'product_id': _selectedProductId,
+                  };
+                  final res = await ApiService.post('/reviews', body);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(res.statusCode == 201 ? '✅ تم إرسال تقييمك بنجاح!' : '❌ حدث خطأ، حاول مجدداً', style: GoogleFonts.cairo(fontWeight: FontWeight.w700)),
+                    content: Text(res.statusCode == 201 ? '✅ تم إرسال تقييمك! ستحصل على نقاطك عند الموافقة' : '❌ حدث خطأ، حاول مجدداً', style: GoogleFonts.cairo(fontWeight: FontWeight.w700)),
                     backgroundColor: res.statusCode == 201 ? AppColors.success : AppColors.danger,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -163,8 +195,10 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
     if (_isLoading) return Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
     if (_cafe == null) return Scaffold(body: Center(child: Text('لم يتم العثور على هذا المقهى', style: GoogleFonts.cairo())));
 
-    final cafeImg = _imgUrl(_cafe!['image_url']);
+    final cafeImg = ApiService.imgUrl(_cafe!['image_url']);
     final defaultImg = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&q=80';
+    final rating = double.tryParse('${_cafe!['avg_rating'] ?? _cafe!['average_rating'] ?? 0}') ?? 0.0;
+    final reviewCount = int.tryParse('${_cafe!['total_reviews'] ?? _cafe!['review_count'] ?? 0}') ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -174,7 +208,7 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
         child: ElevatedButton.icon(
           onPressed: _handleReview,
           icon: Icon(Icons.star_rounded, color: Colors.white),
-          label: Text('قيّم واكسب 10 نقاط', style: GoogleFonts.cairo(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
+          label: Text('قيّم واكسب ${_settings?['review_points'] ?? 10} نقاط', style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
           style: ElevatedButton.styleFrom(
             minimumSize: Size(double.infinity, 60),
             backgroundColor: AppColors.primary,
@@ -188,7 +222,6 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
       body: CustomScrollView(
         physics: BouncingScrollPhysics(),
         slivers: [
-          // Hero App Bar
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
@@ -206,7 +239,6 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
             ),
           ),
 
-          // Info Card
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.all(20),
@@ -223,11 +255,27 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_cafe!['address'] != null) Row(children: [
-                          Icon(Icons.location_on_rounded, color: AppColors.accent, size: 18),
+                        // Rating row
+                        Row(children: [
+                          ...List.generate(5, (i) => Icon(
+                            i < rating.round() ? Icons.star_rounded : Icons.star_outline_rounded,
+                            color: AppColors.warning, size: 18,
+                          )),
                           SizedBox(width: 8),
-                          Expanded(child: Text(_cafe!['address'], style: GoogleFonts.cairo(color: AppColors.textSecondary, fontWeight: FontWeight.w600))),
+                          Text(rating > 0 ? rating.toStringAsFixed(1) : 'لا يوجد تقييم', style: GoogleFonts.cairo(fontWeight: FontWeight.w800, color: AppColors.warning)),
+                          if (reviewCount > 0) ...[
+                            SizedBox(width: 4),
+                            Text('($reviewCount تقييم)', style: GoogleFonts.cairo(color: AppColors.textMuted, fontSize: 12)),
+                          ],
                         ]),
+                        if (_cafe!['address'] != null) ...[
+                          SizedBox(height: 12),
+                          Row(children: [
+                            Icon(Icons.location_on_rounded, color: AppColors.accent, size: 18),
+                            SizedBox(width: 8),
+                            Expanded(child: Text(_cafe!['address'], style: GoogleFonts.cairo(color: AppColors.textSecondary, fontWeight: FontWeight.w600))),
+                          ]),
+                        ],
                         if (_cafe!['description'] != null) ...[
                           SizedBox(height: 16),
                           Text(_cafe!['description'], style: GoogleFonts.cairo(color: AppColors.textSecondary, height: 1.6)),
@@ -237,7 +285,6 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
                   ),
                   SizedBox(height: 24),
 
-                  // Tab Bar
                   Container(
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
                     child: TabBar(
@@ -255,20 +302,19 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
                   ),
                   SizedBox(height: 20),
                   SizedBox(
-                    height: 400,
+                    height: 420,
                     child: TabBarView(
                       controller: _tabController,
                       children: [
                         // Products tab
                         _products.isEmpty
-                            ? Center(child: Column(children: [Icon(Icons.hourglass_empty, color: Colors.grey[300], size: 48), SizedBox(height: 12), Text('القائمة فارغة', style: GoogleFonts.cairo(color: AppColors.textMuted))]))
+                            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.hourglass_empty, color: Colors.grey[300], size: 48), SizedBox(height: 12), Text('القائمة فارغة', style: GoogleFonts.cairo(color: AppColors.textMuted))]))
                             : Builder(
                                 builder: (ctx) {
                                   final categories = ['الكل', ..._products.map((p) => p['category']?.toString() ?? 'عام').toSet()];
-                                  final filteredProducts = _selectedCategory == 'الكل' 
-                                      ? _products 
+                                  final filteredProducts = _selectedCategory == 'الكل'
+                                      ? _products
                                       : _products.where((p) => (p['category']?.toString() ?? 'عام') == _selectedCategory).toList();
-
                                   return Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
@@ -287,35 +333,38 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
                                                 selectedColor: AppColors.primary,
                                                 labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textPrimary),
                                                 backgroundColor: Colors.white,
-                                                onSelected: (val) {
-                                                  if (val) setState(() => _selectedCategory = cat);
-                                                },
+                                                onSelected: (val) { if (val) setState(() => _selectedCategory = cat); },
                                               ),
                                             );
                                           }).toList(),
                                         ),
                                       ),
                                       Expanded(
-                                        child: filteredProducts.isEmpty 
-                                          ? Center(child: Text('لا توجد منتجات في هذا التصنيف', style: GoogleFonts.cairo(color: AppColors.textMuted)))
-                                          : ListView.builder(
-                                            physics: BouncingScrollPhysics(),
-                                            itemCount: filteredProducts.length,
-                                            itemBuilder: (_, i) {
-                                              final p = filteredProducts[i];
-                                              final img = _imgUrl(p['image_url']);
-                                              return Container(
-                                                margin: EdgeInsets.only(bottom: 14),
-                                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
-                                                child: ListTile(
-                                                  contentPadding: EdgeInsets.all(14),
-                                                  leading: ClipRRect(borderRadius: BorderRadius.circular(14), child: SizedBox(width: 60, height: 60, child: img.isNotEmpty ? Image.network(img, fit: BoxFit.cover, errorBuilder: (_,__,___) => _placeholder()) : _placeholder())),
-                                                  title: Text(p['name'], style: GoogleFonts.cairo(fontWeight: FontWeight.w800, fontSize: 16)),
-                                                  subtitle: Text(p['description'] ?? '', style: GoogleFonts.cairo(color: AppColors.textMuted, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                                ),
-                                              );
-                                            },
-                                          ),
+                                        child: filteredProducts.isEmpty
+                                            ? Center(child: Text('لا توجد منتجات في هذا التصنيف', style: GoogleFonts.cairo(color: AppColors.textMuted)))
+                                            : ListView.builder(
+                                                physics: BouncingScrollPhysics(),
+                                                itemCount: filteredProducts.length,
+                                                itemBuilder: (_, i) {
+                                                  final p = filteredProducts[i];
+                                                  final img = ApiService.imgUrl(p['image_url']);
+                                                  return Container(
+                                                    margin: EdgeInsets.only(bottom: 14),
+                                                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                                                    child: ListTile(
+                                                      contentPadding: EdgeInsets.all(14),
+                                                      leading: ClipRRect(borderRadius: BorderRadius.circular(14), child: SizedBox(width: 60, height: 60,
+                                                        child: img.isNotEmpty ? Image.network(img, fit: BoxFit.cover, errorBuilder: (_,__,___) => _placeholder()) : _placeholder())),
+                                                      title: Text(p['name'], style: GoogleFonts.cairo(fontWeight: FontWeight.w800, fontSize: 16)),
+                                                      subtitle: Row(children: [
+                                                        Icon(Icons.stars_rounded, color: AppColors.warning, size: 13),
+                                                        SizedBox(width: 4),
+                                                        Text('${p['points_reward'] ?? 10} نقطة', style: GoogleFonts.cairo(color: AppColors.textMuted, fontSize: 12)),
+                                                      ]),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
                                       ),
                                     ],
                                   );
@@ -323,9 +372,9 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
                               ),
                         // Reviews tab
                         _reviews.isEmpty
-                            ? Center(child: Column(children: [Icon(Icons.star_border, color: Colors.grey[300], size: 48), SizedBox(height: 12), Text('لا يوجد تقييمات بعد', style: GoogleFonts.cairo(color: AppColors.textMuted))]))
+                            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.star_border, color: Colors.grey[300], size: 48), SizedBox(height: 12), Text('لا يوجد تقييمات بعد', style: GoogleFonts.cairo(color: AppColors.textMuted))]))
                             : ListView.builder(
-                                physics: NeverScrollableScrollPhysics(),
+                                physics: BouncingScrollPhysics(),
                                 itemCount: _reviews.length,
                                 itemBuilder: (_, i) {
                                   final r = _reviews[i];
@@ -342,7 +391,10 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
                                             Row(children: [
                                               CircleAvatar(backgroundColor: AppColors.primaryLight, child: Text(r['user_name']?[0] ?? 'م', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800))),
                                               SizedBox(width: 12),
-                                              Text(r['user_name'] ?? 'مستخدم', style: GoogleFonts.cairo(fontWeight: FontWeight.w700, fontSize: 15)),
+                                              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                                Text(r['user_name'] ?? 'مستخدم', style: GoogleFonts.cairo(fontWeight: FontWeight.w700, fontSize: 15)),
+                                                if (r['product_name'] != null) Text('🍵 ${r['product_name']}', style: GoogleFonts.cairo(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600)),
+                                              ]),
                                             ]),
                                             Row(children: [
                                               Text('${r['rating']}', style: GoogleFonts.cairo(fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
@@ -350,12 +402,14 @@ class _CafeDetailState extends State<CafeDetail> with SingleTickerProviderStateM
                                             ]),
                                           ],
                                         ),
-                                        SizedBox(height: 12),
-                                        Container(
-                                          padding: EdgeInsets.all(12),
-                                          decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border(right: BorderSide(color: AppColors.primary, width: 3))),
-                                          child: Text(r['comment'] ?? '', style: GoogleFonts.cairo(color: AppColors.textSecondary, height: 1.5)),
-                                        ),
+                                        if (r['comment'] != null && (r['comment'] as String).isNotEmpty) ...[
+                                          SizedBox(height: 12),
+                                          Container(
+                                            padding: EdgeInsets.all(12),
+                                            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border(right: BorderSide(color: AppColors.primary, width: 3))),
+                                            child: Text(r['comment'], style: GoogleFonts.cairo(color: AppColors.textSecondary, height: 1.5)),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   );

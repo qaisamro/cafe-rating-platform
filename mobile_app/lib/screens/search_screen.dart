@@ -68,11 +68,7 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
-  String _imgUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
-    if (url.startsWith('/')) return 'http://localhost:5000$url';
-    return url;
-  }
+  String _imgUrl(String? url) => ApiService.imgUrl(url);
 
   Widget _buildCafeItem(dynamic cafe) {
     final img = _imgUrl(cafe['image_url']);

@@ -8,7 +8,8 @@ class User {
 
     static async create({ name, email, password, role = 'user' }) {
         const result = await pool.query(
-            'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
+            `INSERT INTO users (name, email, password, role, points, level, profile_completed)
+             VALUES ($1, $2, $3, $4, 0, 'برونزي', false) RETURNING *`,
             [name, email, password, role]
         );
         return result.rows[0];

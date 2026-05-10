@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/screens/welcome_screen.dart';
 import 'package:mobile_app/screens/user_main_tab.dart';
 import 'package:mobile_app/screens/owner_main_tab.dart';
+import 'package:mobile_app/screens/admin_main_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -80,7 +81,13 @@ class CafeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget home = WelcomeScreen();
     if (initialToken != null && initialToken!.isNotEmpty) {
-      home = initialRole == 'owner' ? OwnerMainTab() : UserMainTab();
+      if (initialRole == 'owner') {
+        home = OwnerMainTab();
+      } else if (initialRole == 'admin') {
+        home = AdminMainTab();
+      } else {
+        home = UserMainTab();
+      }
     }
 
     return MaterialApp(

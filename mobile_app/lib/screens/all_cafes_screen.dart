@@ -32,18 +32,14 @@ class _AllCafesScreenState extends State<AllCafesScreen> {
     }
   }
 
-  String _imgUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
-    if (url.startsWith('/')) return 'http://localhost:5000$url';
-    return url;
-  }
+  String _imgUrl(String? url) => ApiService.imgUrl(url);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: Text('المقاهي المميزة', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('جميع المقاهي', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: AppColors.primary))

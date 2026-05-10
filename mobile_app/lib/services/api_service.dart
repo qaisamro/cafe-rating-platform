@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:5000/api';
+  static const String baseUrl = 'http://localhost:3000/api';
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,14 +54,12 @@ class ApiService {
     if (token != null) {
       request.headers['Authorization'] = 'Bearer $token';
     }
-    
     if (kIsWeb) {
       final bytes = await file.readAsBytes();
       request.files.add(http.MultipartFile.fromBytes('image', bytes, filename: file.name));
     } else {
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
     }
-
     var res = await request.send();
     if (res.statusCode == 200) {
       var resData = await res.stream.bytesToString();
@@ -70,7 +67,13 @@ class ApiService {
     }
     return null;
   }
+
+  static String imgUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    if (url.startsWith('/')) return 'http://localhost:3000$url';
+    if (url.startsWith('http://localhost:5000')) {
+      return url.replaceFirst('http://localhost:5000', 'http://localhost:3000');
+    }
+    return url;
+  }
 }
-
-
-

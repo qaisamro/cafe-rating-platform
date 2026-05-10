@@ -9,10 +9,36 @@ const getAllCafes = async (req, res) => {
     }
 };
 
+const getTopRatedCafes = async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT c.*, 
+                COALESCE(AVG(r.rating), 0) as avg_rating,
+                COUNT(r.id) as total_reviews
+            FROM cafes c
+            LEFT JOIN reviews r ON r.cafe_id = c.id AND r.approved = true
+            GROUP BY c.id
+            ORDER BY avg_rating DESC, total_reviews DESC
+            LIMIT 20
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 const getCafeById = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query('SELECT * FROM cafes WHERE id = $1', [id]);
+        const result = await pool.query(`
+            SELECT c.*, 
+                COALESCE(AVG(r.rating), 0) as avg_rating,
+                COUNT(r.id) as total_reviews
+            FROM cafes c
+            LEFT JOIN reviews r ON r.cafe_id = c.id AND r.approved = true
+            WHERE c.id = $1
+            GROUP BY c.id
+        `, [id]);
         if (result.rows.length === 0) return res.status(404).json({ message: 'Cafe not found' });
         res.json(result.rows[0]);
     } catch (err) {
@@ -38,15 +64,11 @@ const updateCafe = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, description, address, image_url } = req.body;
-
-        // Only owner or admin can update
         const cafeCheck = await pool.query('SELECT owner_id FROM cafes WHERE id = $1', [id]);
         if (cafeCheck.rows.length === 0) return res.status(404).json({ message: 'Cafe not found' });
-
         if (req.user.role !== 'admin' && cafeCheck.rows[0].owner_id !== req.user.id) {
             return res.status(403).json({ message: 'Not authorized' });
         }
-
         const result = await pool.query(
             'UPDATE cafes SET name = $1, description = $2, address = $3, image_url = $4 WHERE id = $5 RETURNING *',
             [name, description, address, image_url, id]
@@ -68,5 +90,4 @@ const getMyCafe = async (req, res) => {
     }
 };
 
-module.exports = { getAllCafes, getCafeById, createCafe, updateCafe, getMyCafe };
-
+module.exports = { getAllCafes, getTopRatedCafes, getCafeById, createCafe, updateCafe, getMyCafe };
