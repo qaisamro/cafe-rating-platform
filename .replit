@@ -42,13 +42,13 @@ waitForPort = 3000
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd admin-web && npm run dev"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd cafe-connect && npx expo start --web --port 5000"
+waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Expo App"
